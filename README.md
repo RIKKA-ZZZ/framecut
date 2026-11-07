@@ -2,7 +2,25 @@
 
 浏览器本地视频转动图工作台，支持 GIF、动态 WebP、APNG。使用 React、Vinext 与 FFmpeg.wasm，视频不上传服务器。
 
-## 启动
+## 在线使用
+
+**[打开帧刻 → https://rikka-zzz.github.io/framecut/](https://rikka-zzz.github.io/framecut/)**
+
+网站由 GitHub Pages 托管，直接用浏览器打开即可，无需安装或启动本地服务。首次使用会加载约 32 MB 的转换引擎，视频仍只在你的设备上处理。
+
+## 静态部署
+
+每次推送到 `main`，GitHub Actions 会检查代码、构建纯静态文件并自动部署到 GitHub Pages。工作流见 [pages.yml](.github/workflows/pages.yml)。仓库 Settings → Pages 的 Source 设置为 **GitHub Actions**。
+
+```sh
+npm ci
+npm run build:pages
+npm run check:pages
+```
+
+产物位于 `dist-pages/`，只包含 HTML、JavaScript、CSS、视频和转换引擎静态文件，无需后端服务。默认资源前缀为 `/framecut/`；部署到其他路径时，可通过环境变量 `PAGES_BASE_PATH` 指定（例如根域名部署设为 `/`）。
+
+## 本地开发（可选）
 
 ```sh
 npm ci
@@ -10,7 +28,7 @@ node scripts/prepare-media.mjs
 npm run dev
 ```
 
-预览地址为 http://127.0.0.1:5173/ 。生产构建：`npm run build`。
+`http://127.0.0.1:5173/` 仅用于本机开发，在线使用请点击上面的 GitHub Pages 链接。原 Sites 构建仍可使用 `npm run build`。检查静态产物可运行 `npm run preview:pages`，然后打开 `http://127.0.0.1:4173/framecut/`。
 
 ## 功能
 
@@ -40,6 +58,8 @@ npm run dev
 4. FFmpeg.wasm 0.12.10 的 ffprobe 成功时可能返回 -1：拒绝正数错误码，同时校验实际输出 JSON 和帧数据。
 5. 浏览器自动化插件连接超时：使用应用内浏览器完成交互验证。
 6. WASM 内核约 32 MB：按 8 MB 分片部署，浏览器本地合并，避免单个静态资源的大小限制。
+7. GitHub Pages 在仓库子路径 `/framecut/` 下提供页面：增加纯静态入口与独立构建，统一为示例视频、图片和 FFmpeg 引擎加上部署路径，避免资源 404。
+8. Git 直连 GitHub 超时，而系统代理正常：上传时使用现有系统代理，未修改全局网络设置。
 
 ## 开源组件
 

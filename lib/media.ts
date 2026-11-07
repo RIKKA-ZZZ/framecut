@@ -3,15 +3,20 @@ export type Engine = FFmpeg;
 export type Media = { width:number;height:number;fps:number;duration:number;frames:number[] };
 export const at=(m:Media,i:number)=>m.frames[i]??m.duration;
 export const seekAt=(m:Media,i:number)=>at(m,i)+(at(m,i+1)-at(m,i))*.2;
+// Static hosting supplies its project subpath in the HTML; Sites uses the root.
+export function assetPath(path:string){
+ const base=typeof document==='undefined'?'/':document.querySelector('meta[name="framecut-base"]')?.getAttribute('content')||'/';
+ return base.replace(/\/?$/,'/')+path.replace(/^\//,'');
+}
 export async function createEngine(progress:(p:number)=>void):Promise<Engine>{
  const scope=window as unknown as {FramecutFFmpeg?:new()=>Engine};
- if(!scope.FramecutFFmpeg)await new Promise<void>((resolve,reject)=>{const script=document.createElement('script');script.type='module';script.src='/ffmpeg/bootstrap.js';script.onload=()=>resolve();script.onerror=()=>{script.remove();reject(Error('转换引擎脚本加载失败，请刷新重试。'));};document.head.appendChild(script);});
+ if(!scope.FramecutFFmpeg)await new Promise<void>((resolve,reject)=>{const script=document.createElement('script');script.type='module';script.src=assetPath('ffmpeg/bootstrap.js');script.onload=()=>resolve();script.onerror=()=>{script.remove();reject(Error('转换引擎脚本加载失败，请刷新重试。'));};document.head.appendChild(script);});
  if(!scope.FramecutFFmpeg)throw Error('转换引擎未能初始化。');const e:Engine=new scope.FramecutFFmpeg();e.on('log',({message})=>console.debug('[media]',message));
- const manifest=await fetch('/ffmpeg/core-manifest.json').then(r=>{if(!r.ok)throw Error('引擎加载失败，请检查网络后重试。');return r.json() as Promise<{parts:string[];size:number}>;});
+ const manifest=await fetch(assetPath('ffmpeg/core-manifest.json')).then(r=>{if(!r.ok)throw Error('引擎加载失败，请检查网络后重试。');return r.json() as Promise<{parts:string[];size:number}>;});
  let received=0;const parts:Uint8Array[]=[];
- for(const part of manifest.parts){const r=await fetch('/ffmpeg/'+part);if(!r.ok)throw Error('引擎文件加载失败。');const reader=r.body!.getReader();while(true){const {done,value}=await reader.read();if(done)break;parts.push(value);received+=value.length;progress(received/manifest.size*95);}}
+ for(const part of manifest.parts){const r=await fetch(assetPath('ffmpeg/'+part));if(!r.ok)throw Error('引擎文件加载失败。');const reader=r.body!.getReader();while(true){const {done,value}=await reader.read();if(done)break;parts.push(value);received+=value.length;progress(received/manifest.size*95);}}
  const wasmURL=URL.createObjectURL(new Blob(parts as BlobPart[],{type:'application/wasm'}));
- try{await e.load({coreURL:new URL('/ffmpeg/ffmpeg-core.js',location.href).href,wasmURL});progress(100);return e;}catch(err){e.terminate();throw err;}finally{URL.revokeObjectURL(wasmURL);}
+ try{await e.load({coreURL:new URL(assetPath('ffmpeg/ffmpeg-core.js'),location.href).href,wasmURL});progress(100);return e;}catch(err){e.terminate();throw err;}finally{URL.revokeObjectURL(wasmURL);}
 }
 export async function inspect(e:Engine):Promise<Media>{
  let code=await e.ffprobe(['-v','error','-select_streams','v:0','-show_entries','stream=width,height,avg_frame_rate,duration:format=duration:stream_side_data=rotation','-of','json','input','-o','meta.json']);
